@@ -53,8 +53,8 @@ export default function Login() {
   const { login, loginAdmin, registerClientSelf } = useApp();
   const navigate = useNavigate();
 
-  // Regular user / client login
-  const handleSubmit = (e: React.FormEvent) => {
+  // Regular user / client login (Xtream API / Client account)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
       setError('Por favor, informe seu usuário ou perfil.');
@@ -64,22 +64,33 @@ export default function Login() {
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-      const result = login(username, password);
+    try {
+      const result = await login(username, password);
       setLoading(false);
       if (result.success) {
         navigate('/home');
       } else {
         setError(result.message || 'Não foi possível entrar. Tente novamente.');
       }
-    }, 250);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Falha ao autenticar.');
+    }
   };
 
-  const handleQuickLogin = (user: string) => {
+  const handleQuickLogin = async (user: string) => {
     setUsername(user);
-    const result = login(user);
-    if (result.success) {
-      navigate('/home');
+    setLoading(true);
+    try {
+      const result = await login(user);
+      setLoading(false);
+      if (result.success) {
+        navigate('/home');
+      } else {
+        setError(result.message || 'Não foi possível entrar.');
+      }
+    } catch {
+      setLoading(false);
     }
   };
 

@@ -18,6 +18,20 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api/xtream': {
+          target: process.env.VITE_XTREAM_DNS || 'http://dgaura.top',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/xtream/, '/player_api.php'),
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              proxyRes.headers['access-control-allow-origin'] = '*';
+              proxyRes.headers['access-control-allow-methods'] = 'GET, POST, OPTIONS';
+              proxyRes.headers['access-control-allow-headers'] = '*';
+            });
+          },
+        },
+      },
     },
   };
 });

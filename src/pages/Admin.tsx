@@ -99,7 +99,7 @@ export default function Admin() {
   const [m3uSuccessMsg, setM3uSuccessMsg] = useState('');
 
   // Xtream Codes form state
-  const [xcServer, setXcServer] = useState('http://line.elitetv.pro:8080');
+  const [xcServer, setXcServer] = useState(import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top');
   const [xcUser, setXcUser] = useState('elitetest');
   const [xcPass, setXcPass] = useState('9928172');
   const [xcLoading, setXcLoading] = useState(false);
@@ -285,7 +285,7 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                   Admin
                 </span>
               </div>
-              <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider">
+              <p className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">
                 Painel Administrativo
               </p>
             </div>
@@ -301,10 +301,10 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
         {/* Sidebar Navigation */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* GRUPO 1: GESTÃO DE CLIENTES (MENU PRINCIPAL SOLICITADO) */}
-          <div className="space-y-1">
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="px-3 pb-2 text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
               <span>Gestão de Clientes</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-mono font-bold">
+              <span className="text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400 font-mono font-bold">
                 {clients.length}
               </span>
             </div>
@@ -316,17 +316,17 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setClientFilter('all');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between group ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between group ${
                 activeTab === 'clients' && clientFilter === 'all'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" />
+              <div className="flex items-center gap-3">
+                <Users className="w-[18px] h-[18px] text-red-400 group-hover:scale-110 transition-transform" />
                 <span>Cadastro de Clientes</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 font-mono">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-mono font-medium">
                 {clients.length}
               </span>
             </button>
@@ -338,17 +338,17 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setClientFilter('active');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between group ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between group ${
                 activeTab === 'clients' && clientFilter === 'active'
                   ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60'
                   : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>Clientes Ativos</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 font-mono text-emerald-300">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 font-mono text-emerald-300 font-medium">
                 {activeClientsCount}
               </span>
             </button>
@@ -360,25 +360,25 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setClientFilter('inactive');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between group ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between group ${
                 activeTab === 'clients' && clientFilter === 'inactive'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-red-400 hover:text-red-300 hover:bg-red-950/30'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <XCircle className="w-4 h-4 text-red-400" />
+              <div className="flex items-center gap-3">
+                <XCircle className="w-[18px] h-[18px] text-red-400" />
                 <span>Clientes Inativos</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-950/80 border border-red-800/60 font-mono text-red-300">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-red-950/80 border border-red-800/60 font-mono text-red-300 font-medium">
                 {inactiveClientsCount}
               </span>
             </button>
           </div>
 
           {/* GRUPO 2: ADMINISTRAÇÃO & EQUIPE */}
-          <div className="space-y-1">
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+          <div className="space-y-1.5">
+            <div className="px-3 pb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
               Administração
             </div>
             <button
@@ -386,25 +386,25 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('collabs');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between group ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between group ${
                 activeTab === 'collabs'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <Shield className="w-4 h-4 text-yellow-400 group-hover:scale-110 transition-transform" />
+              <div className="flex items-center gap-3">
+                <Shield className="w-[18px] h-[18px] text-yellow-400 group-hover:scale-110 transition-transform" />
                 <span>Colaboradores</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 font-mono">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-mono font-medium">
                 {collaborators.length}
               </span>
             </button>
           </div>
 
           {/* GRUPO 3: CONTEÚDO E TRANSMISSÃO */}
-          <div className="space-y-1">
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+          <div className="space-y-1.5">
+            <div className="px-3 pb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
               Grade & Transmissão
             </div>
 
@@ -413,13 +413,13 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('m3u');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 ${
                 activeTab === 'm3u'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Upload className="w-4 h-4 text-blue-400" />
+              <Upload className="w-[18px] h-[18px] text-blue-400" />
               <span>Importar Lista M3U</span>
             </button>
 
@@ -428,13 +428,13 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('xtream');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 ${
                 activeTab === 'xtream'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Server className="w-4 h-4 text-emerald-400" />
+              <Server className="w-[18px] h-[18px] text-emerald-400" />
               <span>Xtream Codes API</span>
             </button>
 
@@ -443,13 +443,13 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('manual');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2.5 ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 ${
                 activeTab === 'manual'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <PlusCircle className="w-4 h-4 text-purple-400" />
+              <PlusCircle className="w-[18px] h-[18px] text-purple-400" />
               <span>Adicionar Canal / Stream</span>
             </button>
 
@@ -458,17 +458,17 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('manage');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between ${
                 activeTab === 'manage'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <Layers className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center gap-3">
+                <Layers className="w-[18px] h-[18px] text-amber-400" />
                 <span>Gerenciar Grade</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 font-mono">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-mono font-medium">
                 {items.length}
               </span>
             </button>
@@ -477,17 +477,17 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-white/10 space-y-3 bg-black/60">
-          <div className="p-2.5 bg-red-950/60 border border-red-800/60 rounded-xl text-xs text-red-200 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-xl text-sm text-red-200 flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-red-400 flex-shrink-0" />
             <div className="min-w-0">
-              <div className="text-[10px] text-gray-400 font-semibold uppercase">Master Admin</div>
-              <div className="text-white font-mono truncate text-[11px]">{user?.email || SUPER_ADMIN_EMAIL}</div>
+              <div className="text-xs text-gray-400 font-semibold uppercase">Master Admin</div>
+              <div className="text-white font-mono truncate text-xs">{user?.email || SUPER_ADMIN_EMAIL}</div>
             </div>
           </div>
 
           <button
             onClick={() => navigate('/home')}
-            className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center justify-center gap-2"
+            className="w-full py-3 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Voltar ao Aplicativo</span>

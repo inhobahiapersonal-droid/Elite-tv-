@@ -38,6 +38,20 @@ export function generateClientPassword(): string {
  * Generates formatted access text for sending to client via WhatsApp or message
  */
 export function formatClientAccessMessage(client: Client): string {
+  let extraConfig = '';
+  if (client.m3uUrl) {
+    extraConfig += `\n🔗 *Lista URL M3U:* ${client.m3uUrl}`;
+  }
+  if (client.dns1) {
+    extraConfig += `\n🌐 *DNS Primário (1):* ${client.dns1}`;
+  }
+  if (client.dns2) {
+    extraConfig += `\n🌐 *DNS Secundário (2):* ${client.dns2}`;
+  }
+  if (client.m3uText) {
+    extraConfig += `\n📄 *Texto M3U:* Configurado no painel`;
+  }
+
   return `*🔥 SEU ACESSO ELITETV IPTV PRO ESTÁ LIBERADO!*
 
 Olá, *${client.name}*! Sua conta foi configurada com sucesso.
@@ -47,7 +61,7 @@ Olá, *${client.name}*! Sua conta foi configurada com sucesso.
 🔑 *Senha:* ${client.password}
 📦 *Plano:* ${client.plan.toUpperCase()}
 🟢 *Status:* ${client.status === 'active' ? 'ATIVO' : 'INATIVO'}
-📅 *Vencimento:* ${client.expiresAt || '30 dias'}
+📅 *Vencimento:* ${client.expiresAt || '30 dias'}${extraConfig}
 
 📱 *COMO ASSISTIR:*
 1. Acesse o aplicativo EliteTV

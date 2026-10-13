@@ -79,4 +79,8 @@ export interface Client {
   createdAt: string;
   expiresAt?: string;
   notes?: string;
+  m3uUrl?: string;
+  m3uText?: string;
+  dns1?: string;
+  dns2?: string;
 }

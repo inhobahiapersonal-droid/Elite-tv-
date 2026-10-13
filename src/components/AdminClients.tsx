@@ -21,7 +21,13 @@ import {
   Eye,
   EyeOff,
   Filter,
-  CheckCheck
+  CheckCheck,
+  Link2,
+  FileText,
+  Globe,
+  Server,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface AdminClientsProps {
@@ -51,6 +57,13 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
   const [durationDays, setDurationDays] = useState('30');
   const [notes, setNotes] = useState('');
   const [showFormPassword, setShowFormPassword] = useState(false);
+
+  // Dedicated M3U & DNS state in Plan Area
+  const [m3uUrl, setM3uUrl] = useState('');
+  const [m3uText, setM3uText] = useState('');
+  const [dns1, setDns1] = useState('');
+  const [dns2, setDns2] = useState('');
+  const [activePlanConfigTab, setActivePlanConfigTab] = useState<'none' | 'm3uUrl' | 'm3uText' | 'dns1' | 'dns2'>('none');
 
   // Success / Feedback state
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -96,7 +109,11 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
       plan,
       status,
       expiresAt: formattedExp,
-      notes: notes.trim()
+      notes: notes.trim(),
+      m3uUrl: m3uUrl.trim(),
+      m3uText: m3uText.trim(),
+      dns1: dns1.trim(),
+      dns2: dns2.trim()
     });
 
     setNewlyCreatedClient(created);
@@ -109,6 +126,11 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
     setPhone('');
     setEmail('');
     setNotes('');
+    setM3uUrl('');
+    setM3uText('');
+    setDns1('');
+    setDns2('');
+    setActivePlanConfigTab('none');
     setDurationDays('30');
     setStatus('active');
     setPlan('premium');
@@ -384,20 +406,218 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
             </div>
 
             {/* Plano */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                Plano / Pacote de Assinatura
-              </label>
-              <select
-                value={plan}
-                onChange={(e) => setPlan(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white text-sm focus:outline-none focus:border-red-500 transition"
-              >
-                <option value="premium">💎 Premium VIP (Canais Full HD + 4K + Filmes)</option>
-                <option value="vip">👑 Super VIP Especial (Acesso Ilimitado Total)</option>
-                <option value="basic">📺 Básico IPTV (Canais Ao Vivo)</option>
-                <option value="teste">⏱️ Teste Grátis 48 Horas</option>
-              </select>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                  <span>Plano / Pacote de Assinatura</span>
+                  <span className="text-[10px] text-amber-400 font-mono font-normal">Opções de Lista & DNS disponíveis</span>
+                </label>
+                <select
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white text-sm focus:outline-none focus:border-red-500 transition"
+                >
+                  <option value="premium">💎 Premium VIP (Canais Full HD + 4K + Filmes)</option>
+                  <option value="vip">👑 Super VIP Especial (Acesso Ilimitado Total)</option>
+                  <option value="basic">📺 Básico IPTV (Canais Ao Vivo)</option>
+                  <option value="teste">⏱️ Teste Grátis 48 Horas</option>
+                </select>
+              </div>
+
+              {/* ESPAÇO LOGO ABAIXO DO PLANO: BOTÕES PARA ADICIONAR LISTA URL M3U, TEXTO M3U E 2 OPÇÕES DE DNS */}
+              <div className="p-3.5 bg-neutral-950/80 rounded-xl border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                    <Server className="w-3.5 h-3.5 text-red-500" />
+                    Configuração de Lista & Servidores DNS do Plano
+                  </span>
+                  {(m3uUrl || m3uText || dns1 || dns2) && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 font-mono font-bold">
+                      Configurado
+                    </span>
+                  )}
+                </div>
+
+                {/* 4 Botões: Lista URL M3U, Texto M3U, DNS 1, DNS 2 */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* Botão 1: Adicionar Lista URL M3U */}
+                  <button
+                    type="button"
+                    onClick={() => setActivePlanConfigTab(prev => prev === 'm3uUrl' ? 'none' : 'm3uUrl')}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center justify-center gap-1 text-center ${
+                      activePlanConfigTab === 'm3uUrl' || m3uUrl
+                        ? 'bg-blue-950/80 border-blue-500 text-blue-300 shadow-md shadow-blue-950/50'
+                        : 'bg-black/50 border-white/10 text-gray-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Link2 className="w-4 h-4 text-blue-400" />
+                    <span className="leading-tight">Lista URL M3U</span>
+                    {m3uUrl && <span className="text-[9px] text-blue-400 font-mono">✓ Preenchido</span>}
+                  </button>
+
+                  {/* Botão 2: Adicionar Texto M3U */}
+                  <button
+                    type="button"
+                    onClick={() => setActivePlanConfigTab(prev => prev === 'm3uText' ? 'none' : 'm3uText')}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center justify-center gap-1 text-center ${
+                      activePlanConfigTab === 'm3uText' || m3uText
+                        ? 'bg-amber-950/80 border-amber-500 text-amber-300 shadow-md shadow-amber-950/50'
+                        : 'bg-black/50 border-white/10 text-gray-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 text-amber-400" />
+                    <span className="leading-tight">Texto M3U</span>
+                    {m3uText && <span className="text-[9px] text-amber-400 font-mono">✓ Preenchido</span>}
+                  </button>
+
+                  {/* Botão 3: Adicionar DNS 1 (Primário) */}
+                  <button
+                    type="button"
+                    onClick={() => setActivePlanConfigTab(prev => prev === 'dns1' ? 'none' : 'dns1')}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center justify-center gap-1 text-center ${
+                      activePlanConfigTab === 'dns1' || dns1
+                        ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-950/50'
+                        : 'bg-black/50 border-white/10 text-gray-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4 text-emerald-400" />
+                    <span className="leading-tight">DNS 1 (Primário)</span>
+                    {dns1 && <span className="text-[9px] text-emerald-400 font-mono">✓ Preenchido</span>}
+                  </button>
+
+                  {/* Botão 4: Adicionar DNS 2 (Secundário / Alternativo) */}
+                  <button
+                    type="button"
+                    onClick={() => setActivePlanConfigTab(prev => prev === 'dns2' ? 'none' : 'dns2')}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center justify-center gap-1 text-center ${
+                      activePlanConfigTab === 'dns2' || dns2
+                        ? 'bg-purple-950/80 border-purple-500 text-purple-300 shadow-md shadow-purple-950/50'
+                        : 'bg-black/50 border-white/10 text-gray-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4 text-purple-400" />
+                    <span className="leading-tight">DNS 2 (Secundário)</span>
+                    {dns2 && <span className="text-[9px] text-purple-400 font-mono">✓ Preenchido</span>}
+                  </button>
+                </div>
+
+                {/* Painéis de entrada para o botão ativo */}
+                {activePlanConfigTab === 'm3uUrl' && (
+                  <div className="p-3 bg-black/70 border border-blue-500/40 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                        <Link2 className="w-3.5 h-3.5" />
+                        URL da Lista M3U / M3U_PLUS
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setM3uUrl('http://servidor-elitetv.tv:8080/get.php?username=vip&password=tv&type=m3u_plus')}
+                        className="text-[10px] text-blue-400 hover:underline"
+                      >
+                        Exemplo Padrão
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={m3uUrl}
+                      onChange={(e) => setM3uUrl(e.target.value)}
+                      placeholder="https://servidor-iptv.com/get.php?username=...&password=...&type=m3u_plus"
+                      className="w-full px-3 py-2 bg-neutral-900 border border-white/15 rounded-lg text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500"
+                    />
+                    <p className="text-[10px] text-gray-400">
+                      O link HLS da lista M3U será associado ao cadastro deste cliente.
+                    </p>
+                  </div>
+                )}
+
+                {activePlanConfigTab === 'm3uText' && (
+                  <div className="p-3 bg-black/70 border border-amber-500/40 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5" />
+                        Conteúdo em Texto M3U
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setM3uText('#EXTM3U\n#EXTINF:-1 tvg-name="Globo HD" group-title="Canais Abertos",Globo HD\nhttps://stream.elitetv.tv/live/globo.m3u8')}
+                        className="text-[10px] text-amber-400 hover:underline"
+                      >
+                        Exemplo M3U
+                      </button>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={m3uText}
+                      onChange={(e) => setM3uText(e.target.value)}
+                      placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-logo=&quot;...&quot; group-title=&quot;Canais&quot;,Canal Exemplo&#10;https://stream.servidor.com/live.m3u8"
+                      className="w-full px-3 py-2 bg-neutral-900 border border-white/15 rounded-lg text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-amber-500"
+                    />
+                    <p className="text-[10px] text-gray-400">
+                      Cole as linhas da lista #EXTM3U diretamente para salvar no perfil do cliente.
+                    </p>
+                  </div>
+                )}
+
+                {activePlanConfigTab === 'dns1' && (
+                  <div className="p-3 bg-black/70 border border-emerald-500/40 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5" />
+                        Opção 1: DNS Primário do Servidor (Host / IP)
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDns1(import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top')}
+                          className="text-[10px] text-emerald-400 hover:underline font-mono"
+                        >
+                          Usar {import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top'}
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={dns1}
+                      onChange={(e) => setDns1(e.target.value)}
+                      placeholder={`Ex: ${import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top'}`}
+                      className="w-full px-3 py-2 bg-neutral-900 border border-white/15 rounded-lg text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                    <p className="text-[10px] text-gray-400">
+                      Endereço ou IP DNS primário para conexão rápida nos aplicativos IPTV (Smart IPTV, XCIPTV, TiviMate).
+                    </p>
+                  </div>
+                )}
+
+                {activePlanConfigTab === 'dns2' && (
+                  <div className="p-3 bg-black/70 border border-purple-500/40 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5" />
+                        Opção 2: DNS Secundário / Alternativo (Redundância)
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDns2('http://dns2.elitetv.pro:8080')}
+                          className="text-[10px] text-purple-400 hover:underline"
+                        >
+                          DNS Padrão 2
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={dns2}
+                      onChange={(e) => setDns2(e.target.value)}
+                      placeholder="Ex: http://dns2.servidor.pro:8080 ou 1.1.1.1"
+                      className="w-full px-3 py-2 bg-neutral-900 border border-white/15 rounded-lg text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-purple-500"
+                    />
+                    <p className="text-[10px] text-gray-400">
+                      Endereço de contingência caso o DNS 1 sofra bloqueio ou oscilação de rota.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Status (Ativo / Inativo) */}
@@ -634,6 +854,32 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/10 text-gray-300 border border-white/15 uppercase">
                           {client.plan}
                         </span>
+
+                        {/* M3U / DNS Badges if configured */}
+                        {client.m3uUrl && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 flex items-center gap-1" title={client.m3uUrl}>
+                            <Link2 className="w-2.5 h-2.5" />
+                            URL M3U
+                          </span>
+                        )}
+                        {client.m3uText && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60 flex items-center gap-1">
+                            <FileText className="w-2.5 h-2.5" />
+                            Texto M3U
+                          </span>
+                        )}
+                        {client.dns1 && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1" title={`DNS 1: ${client.dns1}`}>
+                            <Globe className="w-2.5 h-2.5" />
+                            DNS 1
+                          </span>
+                        )}
+                        {client.dns2 && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 flex items-center gap-1" title={`DNS 2: ${client.dns2}`}>
+                            <Globe className="w-2.5 h-2.5" />
+                            DNS 2
+                          </span>
+                        )}
                       </div>
 
                       {/* Contact and Date details */}

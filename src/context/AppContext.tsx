@@ -15,7 +15,7 @@ interface AppContextType {
   playlists: PlaylistSource[];
   collaborators: Collaborator[];
   clients: Client[];
-  login: (username: string, password?: string) => { success: boolean; message?: string };
+  login: (username: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   loginAdmin: (email: string, pass: string) => { success: boolean; message?: string };
   addClient: (clientData: Partial<Client>) => Client;
   updateClient: (id: string, updates: Partial<Client>) => void;
@@ -190,7 +190,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: data.status || 'active',
       createdAt: new Date().toLocaleDateString('pt-BR'),
       expiresAt: data.expiresAt || expStr,
-      notes: data.notes?.trim() || ''
+      notes: data.notes?.trim() || '',
+      m3uUrl: data.m3uUrl?.trim() || '',
+      m3uText: data.m3uText?.trim() || '',
+      dns1: data.dns1?.trim() || '',
+      dns2: data.dns2?.trim() || ''
     };
 
     setClients(prev => [newClient, ...prev]);
@@ -277,11 +281,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCollaborators(prev => prev.filter(c => c.id !== id));
   };
 
-  const login = (username: string, password?: string): { success: boolean; message?: string } => {
+  const login = async (username: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     const trimmedUser = username.trim();
     if (!trimmedUser) return { success: false, message: 'Por favor, informe seu usuário ou login.' };
 
-    // Check if matching registered client (case-insensitive)
+    const cleanPass = password?.trim() || '';
+    const xtreamDns = (import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top').replace(/\/+$/, '');
+
+    // Step 3: No login, ao invés de chamar http://dgaura.top direto, chama /api/xtream?username={user}&password={pass}
+    let xtreamErrorMsg = '';
+
+    try {
+      const searchParams = new URLSearchParams({
+        username: trimmedUser,
+        password: cleanPass
+      });
+
+      const response = await fetch(`/api/xtream?${searchParams.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && typeof data === 'object') {
+          const userInfo = data.user_info;
+          if (userInfo) {
+            // Check auth flag: 1 means successfully authenticated
+            if (userInfo.auth === 1 || userInfo.status?.toLowerCase() === 'active') {
+              // Format expiration date if present
+              let expStr = '30 dias';
+              if (userInfo.exp_date) {
+                const expTimestamp = parseInt(userInfo.exp_date, 10);
+                if (!isNaN(expTimestamp) && expTimestamp > 0) {
+                  expStr = new Date(expTimestamp * 1000).toLocaleDateString('pt-BR');
+                }
+              }
+
+              // Register or update verified client in local state
+              const verifiedClient: Client = {
+                id: `cli-xc-${Date.now()}`,
+                name: userInfo.username || trimmedUser,
+                username: userInfo.username || trimmedUser,
+                password: cleanPass,
+                plan: 'vip',
+                status: 'active',
+                createdAt: new Date().toLocaleDateString('pt-BR'),
+                expiresAt: expStr,
+                dns1: xtreamDns,
+                notes: 'Autenticado via Xtream API (/api/xtream)'
+              };
+
+              setClients(prev => {
+                const filtered = prev.filter(c => c.username.toLowerCase() !== trimmedUser.toLowerCase());
+                return [verifiedClient, ...filtered];
+              });
+
+              // Ensure Xtream playlist source is created
+              const existingSource = playlists.find(p => p.type === 'xtream' && p.xtreamUser?.toLowerCase() === trimmedUser.toLowerCase());
+              if (!existingSource) {
+                const newSource: PlaylistSource = {
+                  id: `xc-${Date.now()}`,
+                  name: `Xtream: ${trimmedUser} (${new URL(xtreamDns).hostname})`,
+                  type: 'xtream',
+                  xtreamServer: xtreamDns,
+                  xtreamUser: trimmedUser,
+                  xtreamPass: cleanPass,
+                  channelCount: items.length,
+                  lastUpdated: new Date().toLocaleDateString('pt-BR'),
+                  active: true
+                };
+                setPlaylists(prev => [newSource, ...prev]);
+              }
+
+              const session: UserSession = {
+                username: userInfo.username || trimmedUser,
+                name: userInfo.username || trimmedUser,
+                avatar: activeProfile.avatar,
+                role: 'user',
+                profile: activeProfile,
+                loginTime: Date.now()
+              };
+              setUser(session);
+              return { success: true };
+            } else if (userInfo.auth === 0) {
+              xtreamErrorMsg = `Usuário ou senha inválidos no servidor Xtream (${xtreamDns}).`;
+            } else if (userInfo.status && userInfo.status.toLowerCase() !== 'active') {
+              xtreamErrorMsg = `Acesso Bloqueado: Sua conta está "${userInfo.status}" no servidor IPTV.`;
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Erro ao consultar /api/xtream:', err);
+    }
+
+    // Check if matching registered client in local state (case-insensitive)
     const matchingClient = clients.find(c => 
       c.username.trim().toLowerCase() === trimmedUser.toLowerCase() ||
       (c.phone && c.phone.replace(/\D/g, '') === trimmedUser.replace(/\D/g, '') && trimmedUser.replace(/\D/g, '').length >= 8)
@@ -296,11 +387,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // If client is active and password was supplied, verify if desired
-      if (password && password.trim() && matchingClient.password) {
-        if (matchingClient.password.trim() !== password.trim()) {
+      if (cleanPass && matchingClient.password) {
+        if (matchingClient.password.trim() !== cleanPass) {
           return {
             success: false,
-            message: 'Senha incorreta para esta conta de cliente.'
+            message: xtreamErrorMsg || 'Senha incorreta para esta conta de cliente.'
           };
         }
       }
@@ -318,18 +409,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true };
     }
 
-    // Standard client login (profile / generic user)
-    const session: UserSession = {
-      username: trimmedUser,
-      name: trimmedUser.charAt(0).toUpperCase() + trimmedUser.slice(1),
-      avatar: activeProfile.avatar,
-      role: 'user',
-      profile: activeProfile,
-      loginTime: Date.now()
-    };
+    // If server gave explicit error message and no matching client, report the server message
+    if (xtreamErrorMsg) {
+      return {
+        success: false,
+        message: xtreamErrorMsg
+      };
+    }
 
-    setUser(session);
-    return { success: true };
+    // Quick demo login or fallback for generic user profile
+    if (trimmedUser.toLowerCase() === 'cliente' || trimmedUser.toLowerCase() === 'cliente vip') {
+      const session: UserSession = {
+        username: trimmedUser,
+        name: trimmedUser.charAt(0).toUpperCase() + trimmedUser.slice(1),
+        avatar: activeProfile.avatar,
+        role: 'user',
+        profile: activeProfile,
+        loginTime: Date.now()
+      };
+      setUser(session);
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      message: `Não foi possível autenticar o usuário "${trimmedUser}". Verifique suas credenciais no servidor ${xtreamDns}.`
+    };
   };
 
   const loginAdmin = (email: string, pass: string): { success: boolean; message?: string } => {
@@ -436,7 +541,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Clean trailing slashes
       cleanServer = cleanServer.replace(/\/+$/, '');
 
-      // Simulate or attempt Xtream auth endpoint
+      // Query player_api.php via proxy /api/xtream
+      try {
+        const queryParams = new URLSearchParams({
+          username,
+          password: pass,
+        });
+        await fetch(`/api/xtream?${queryParams.toString()}`);
+      } catch (e) {
+        console.warn('Xtream proxy ping:', e);
+      }
+
       const newItems: MediaItem[] = [
         {
           id: `xc-live-${Date.now()}-1`,
