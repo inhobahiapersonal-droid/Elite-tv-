@@ -1,0 +1,6 @@
+{
+  "name": "EliteTV - Netflix Clone IPTV Player",
+  "description": "Reprodutor IPTV premium estilo Netflix com suporte a canais ao vivo, filmes, séries, listas M3U e Xtream Codes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
