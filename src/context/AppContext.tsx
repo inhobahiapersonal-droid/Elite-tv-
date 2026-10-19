@@ -15,6 +15,9 @@ interface AppContextType {
   playlists: PlaylistSource[];
   collaborators: Collaborator[];
   clients: Client[];
+  xtreamDns: string;
+  setXtreamDns: (dns: string) => void;
+  testXtreamConnection: (dnsToTest?: string) => Promise<{ success: boolean; latency?: number; message: string; status?: number }>;
   login: (username: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   loginAdmin: (email: string, pass: string) => { success: boolean; message?: string };
   addClient: (clientData: Partial<Client>) => Client;
@@ -170,6 +173,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('elitetv_clients', JSON.stringify(clients));
   }, [clients]);
 
+  // Xtream Codes DNS Configuration (configured via Admin Panel, saved in localStorage & synced with backend)
+  const [xtreamDns, setXtreamDnsState] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('elitetv_xtream_dns');
+      return stored ? stored.trim().replace(/\/+$/, '') : '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Sync DNS with backend on mount
+  useEffect(() => {
+    fetch('/api/settings/dns')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.dns) {
+          const clean = String(data.dns).trim().replace(/\/+$/, '');
+          if (clean && !localStorage.getItem('elitetv_xtream_dns')) {
+            setXtreamDnsState(clean);
+            localStorage.setItem('elitetv_xtream_dns', clean);
+          }
+        } else {
+          // Push local storage DNS to backend if present
+          const localDns = localStorage.getItem('elitetv_xtream_dns');
+          if (localDns) {
+            fetch('/api/settings/dns', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dns: localDns.trim().replace(/\/+$/, '') })
+            }).catch(() => {});
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const setXtreamDns = (newDns: string) => {
+    let clean = newDns.trim();
+    if (clean) {
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      clean = clean.replace(/\/+$/, '');
+    }
+
+    setXtreamDnsState(clean);
+
+    try {
+      if (clean) {
+        localStorage.setItem('elitetv_xtream_dns', clean);
+      } else {
+        localStorage.removeItem('elitetv_xtream_dns');
+      }
+
+      // Sync with server proxy endpoint
+      fetch('/api/settings/dns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dns: clean })
+      }).catch(() => {});
+    } catch (err) {
+      console.error('Falha ao salvar DNS no localStorage:', err);
+    }
+  };
+
+  const testXtreamConnection = async (dnsToTest?: string): Promise<{ success: boolean; latency?: number; message: string; status?: number }> => {
+    const target = (dnsToTest || xtreamDns || '').trim().replace(/\/+$/, '');
+    if (!target) {
+      return {
+        success: false,
+        message: 'Configure seu DNS Xtream no campo antes de testar a conexão.'
+      };
+    }
+
+    const validTarget = target.startsWith('http://') || target.startsWith('https://')
+      ? target
+      : `http://${target}`;
+
+    try {
+      const res = await fetch(`/api/xtream/test?dns=${encodeURIComponent(validTarget)}`, {
+        headers: {
+          'x-xtream-dns': validTarget
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.online) {
+          return {
+            success: true,
+            latency: data.latency,
+            status: data.status,
+            message: `DNS Online! Servidor respondeu em ${data.latency || 0}ms.`
+          };
+        } else {
+          return {
+            success: false,
+            message: data.error || 'Servidor não respondeu. Verifique o host e a porta.'
+          };
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errData.error || errData.message || `Servidor retornou status ${res.status}.`
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Falha ao testar conexão com o servidor.'
+      };
+    }
+  };
+
   const addClient = (data: Partial<Client>): Client => {
     const generatedUser = data.username?.trim() || generateClientUsername(data.name);
     const generatedPass = data.password?.trim() || generateClientPassword();
@@ -286,90 +404,142 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!trimmedUser) return { success: false, message: 'Por favor, informe seu usuário ou login.' };
 
     const cleanPass = password?.trim() || '';
-    const xtreamDns = (import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top').replace(/\/+$/, '');
+    const lowerUser = trimmedUser.toLowerCase();
 
-    // Step 3: No login, ao invés de chamar http://dgaura.top direto, chama /api/xtream?username={user}&password={pass}
+    // Verify Master Admin (inhobahia29@gmail.com / 040608)
+    if (
+      (lowerUser === SUPER_ADMIN_EMAIL.toLowerCase() || lowerUser === 'inhobahia29' || lowerUser === 'admin' || lowerUser === 'adm') &&
+      cleanPass === SUPER_ADMIN_PASS
+    ) {
+      const session: UserSession = {
+        username: 'Inhobahia29',
+        email: SUPER_ADMIN_EMAIL,
+        name: 'Administrador InhoBahia',
+        avatar: activeProfile.avatar,
+        role: 'admin',
+        profile: activeProfile,
+        loginTime: Date.now()
+      };
+      setUser(session);
+      return { success: true };
+    }
+
+    // Verify Collaborators
+    const matchedCollab = collaborators.find(c =>
+      c.email.trim().toLowerCase() === lowerUser && c.password.trim() === cleanPass
+    );
+    if (matchedCollab && matchedCollab.status !== 'inactive') {
+      const session: UserSession = {
+        username: matchedCollab.name,
+        email: matchedCollab.email,
+        name: `${matchedCollab.name} (${matchedCollab.role})`,
+        avatar: activeProfile.avatar,
+        role: 'admin',
+        profile: activeProfile,
+        loginTime: Date.now()
+      };
+      setUser(session);
+      return { success: true };
+    }
+
+    const currentDns = (xtreamDns || localStorage.getItem('elitetv_xtream_dns') || '').trim().replace(/\/+$/, '');
+
     let xtreamErrorMsg = '';
 
-    try {
-      const searchParams = new URLSearchParams({
-        username: trimmedUser,
-        password: cleanPass
-      });
+    if (currentDns) {
+      try {
+        const searchParams = new URLSearchParams({
+          username: trimmedUser,
+          password: cleanPass,
+          dns: currentDns
+        });
 
-      const response = await fetch(`/api/xtream?${searchParams.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data && typeof data === 'object') {
-          const userInfo = data.user_info;
-          if (userInfo) {
-            // Check auth flag: 1 means successfully authenticated
-            if (userInfo.auth === 1 || userInfo.status?.toLowerCase() === 'active') {
-              // Format expiration date if present
-              let expStr = '30 dias';
-              if (userInfo.exp_date) {
-                const expTimestamp = parseInt(userInfo.exp_date, 10);
-                if (!isNaN(expTimestamp) && expTimestamp > 0) {
-                  expStr = new Date(expTimestamp * 1000).toLocaleDateString('pt-BR');
+        const response = await fetch(`/api/xtream?${searchParams.toString()}`, {
+          headers: {
+            'x-xtream-dns': currentDns
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data && typeof data === 'object') {
+            const userInfo = data.user_info;
+            if (userInfo) {
+              // Check auth flag: 1 means successfully authenticated
+              if (userInfo.auth === 1 || userInfo.status?.toLowerCase() === 'active') {
+                // Format expiration date if present
+                let expStr = '30 dias';
+                if (userInfo.exp_date) {
+                  const expTimestamp = parseInt(userInfo.exp_date, 10);
+                  if (!isNaN(expTimestamp) && expTimestamp > 0) {
+                    expStr = new Date(expTimestamp * 1000).toLocaleDateString('pt-BR');
+                  }
                 }
-              }
 
-              // Register or update verified client in local state
-              const verifiedClient: Client = {
-                id: `cli-xc-${Date.now()}`,
-                name: userInfo.username || trimmedUser,
-                username: userInfo.username || trimmedUser,
-                password: cleanPass,
-                plan: 'vip',
-                status: 'active',
-                createdAt: new Date().toLocaleDateString('pt-BR'),
-                expiresAt: expStr,
-                dns1: xtreamDns,
-                notes: 'Autenticado via Xtream API (/api/xtream)'
-              };
-
-              setClients(prev => {
-                const filtered = prev.filter(c => c.username.toLowerCase() !== trimmedUser.toLowerCase());
-                return [verifiedClient, ...filtered];
-              });
-
-              // Ensure Xtream playlist source is created
-              const existingSource = playlists.find(p => p.type === 'xtream' && p.xtreamUser?.toLowerCase() === trimmedUser.toLowerCase());
-              if (!existingSource) {
-                const newSource: PlaylistSource = {
-                  id: `xc-${Date.now()}`,
-                  name: `Xtream: ${trimmedUser} (${new URL(xtreamDns).hostname})`,
-                  type: 'xtream',
-                  xtreamServer: xtreamDns,
-                  xtreamUser: trimmedUser,
-                  xtreamPass: cleanPass,
-                  channelCount: items.length,
-                  lastUpdated: new Date().toLocaleDateString('pt-BR'),
-                  active: true
+                // Register or update verified client in local state
+                const verifiedClient: Client = {
+                  id: `cli-xc-${Date.now()}`,
+                  name: userInfo.username || trimmedUser,
+                  username: userInfo.username || trimmedUser,
+                  password: cleanPass,
+                  plan: 'vip',
+                  status: 'active',
+                  createdAt: new Date().toLocaleDateString('pt-BR'),
+                  expiresAt: expStr,
+                  dns1: currentDns,
+                  notes: 'Autenticado via Xtream API (/api/xtream)'
                 };
-                setPlaylists(prev => [newSource, ...prev]);
-              }
 
-              const session: UserSession = {
-                username: userInfo.username || trimmedUser,
-                name: userInfo.username || trimmedUser,
-                avatar: activeProfile.avatar,
-                role: 'user',
-                profile: activeProfile,
-                loginTime: Date.now()
-              };
-              setUser(session);
-              return { success: true };
-            } else if (userInfo.auth === 0) {
-              xtreamErrorMsg = `Usuário ou senha inválidos no servidor Xtream (${xtreamDns}).`;
-            } else if (userInfo.status && userInfo.status.toLowerCase() !== 'active') {
-              xtreamErrorMsg = `Acesso Bloqueado: Sua conta está "${userInfo.status}" no servidor IPTV.`;
+                setClients(prev => {
+                  const filtered = prev.filter(c => c.username.toLowerCase() !== trimmedUser.toLowerCase());
+                  return [verifiedClient, ...filtered];
+                });
+
+                // Ensure Xtream playlist source is created
+                const existingSource = playlists.find(p => p.type === 'xtream' && p.xtreamUser?.toLowerCase() === trimmedUser.toLowerCase());
+                if (!existingSource) {
+                  let hostLabel = currentDns;
+                  try {
+                    hostLabel = new URL(currentDns).hostname;
+                  } catch {
+                    hostLabel = currentDns;
+                  }
+
+                  const newSource: PlaylistSource = {
+                    id: `xc-${Date.now()}`,
+                    name: `Xtream: ${trimmedUser} (${hostLabel})`,
+                    type: 'xtream',
+                    xtreamServer: currentDns,
+                    xtreamUser: trimmedUser,
+                    xtreamPass: cleanPass,
+                    channelCount: items.length,
+                    lastUpdated: new Date().toLocaleDateString('pt-BR'),
+                    active: true
+                  };
+                  setPlaylists(prev => [newSource, ...prev]);
+                }
+
+                const session: UserSession = {
+                  username: userInfo.username || trimmedUser,
+                  name: userInfo.username || trimmedUser,
+                  avatar: activeProfile.avatar,
+                  role: 'user',
+                  profile: activeProfile,
+                  loginTime: Date.now()
+                };
+                setUser(session);
+                return { success: true };
+              } else if (userInfo.auth === 0) {
+                xtreamErrorMsg = `Usuário ou senha inválidos no servidor Xtream (${currentDns}).`;
+              } else if (userInfo.status && userInfo.status.toLowerCase() !== 'active') {
+                xtreamErrorMsg = `Acesso Bloqueado: Sua conta está "${userInfo.status}" no servidor IPTV.`;
+              }
             }
           }
         }
+      } catch (err: any) {
+        console.warn('Erro ao consultar /api/xtream:', err);
       }
-    } catch (err: any) {
-      console.warn('Erro ao consultar /api/xtream:', err);
     }
 
     // Check if matching registered client in local state (case-insensitive)
@@ -536,9 +706,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const importXtreamCodes = async (server: string, username: string, pass: string): Promise<{ success: boolean; count: number; error?: string }> => {
     try {
-      let cleanServer = server.trim();
-      if (!cleanServer.startsWith('http')) cleanServer = `http://${cleanServer}`;
-      // Clean trailing slashes
+      let cleanServer = (server.trim() || xtreamDns || localStorage.getItem('elitetv_xtream_dns') || '').trim();
+      if (!cleanServer) {
+        return {
+          success: false,
+          count: 0,
+          error: 'Nenhum DNS configurado. Configure seu DNS Xtream no painel da Elite TV.'
+        };
+      }
+
+      if (!cleanServer.startsWith('http://') && !cleanServer.startsWith('https://')) {
+        cleanServer = `http://${cleanServer}`;
+      }
       cleanServer = cleanServer.replace(/\/+$/, '');
 
       // Query player_api.php via proxy /api/xtream
@@ -546,8 +725,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const queryParams = new URLSearchParams({
           username,
           password: pass,
+          dns: cleanServer
         });
-        await fetch(`/api/xtream?${queryParams.toString()}`);
+        await fetch(`/api/xtream?${queryParams.toString()}`, {
+          headers: {
+            'x-xtream-dns': cleanServer
+          }
+        });
       } catch (e) {
         console.warn('Xtream proxy ping:', e);
       }
@@ -645,6 +829,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         importM3UContent,
         importXtreamCodes,
         resetToDefault,
+        xtreamDns,
+        setXtreamDns,
+        testXtreamConnection,
       }}
     >
       {children}

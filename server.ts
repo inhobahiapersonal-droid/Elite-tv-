@@ -9,11 +9,12 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// In-memory fallback for Xtream DNS configuration on the server
+let serverXtreamDns: string = '';
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
-  const DEFAULT_XTREAM_DNS = process.env.VITE_XTREAM_DNS || 'http://dgaura.top';
-  const targetDns = (process.env.VITE_XTREAM_DNS || DEFAULT_XTREAM_DNS).replace(/\/+$/, '');
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -29,15 +30,101 @@ async function startServer() {
     next();
   });
 
-  // Proxy endpoint: /api/xtream -> http://dgaura.top/player_api.php
+  // Settings endpoint: get or set Xtream DNS configured from Admin panel
+  app.get('/api/settings/dns', (_req: Request, res: Response) => {
+    return res.json({ dns: serverXtreamDns });
+  });
+
+  app.post('/api/settings/dns', (req: Request, res: Response) => {
+    const rawDns = req.body?.dns || '';
+    serverXtreamDns = String(rawDns).trim().replace(/\/+$/, '');
+    return res.json({ success: true, dns: serverXtreamDns });
+  });
+
+  // Connection test endpoint for validating if DNS is reachable
+  app.all('/api/xtream/test', async (req: Request, res: Response) => {
+    try {
+      const targetDns = (
+        (req.headers['x-xtream-dns'] as string) ||
+        (req.query.dns as string) ||
+        req.body?.dns ||
+        serverXtreamDns ||
+        ''
+      ).trim().replace(/\/+$/, '');
+
+      if (!targetDns) {
+        return res.status(400).json({
+          online: false,
+          error: 'Nenhum DNS Xtream informado. Configure seu DNS Xtream no painel da Elite TV.'
+        });
+      }
+
+      // Ensure valid URL scheme
+      const validUrlStr = targetDns.startsWith('http://') || targetDns.startsWith('https://')
+        ? targetDns
+        : `http://${targetDns}`;
+
+      const pingUrl = new URL(`${validUrlStr}/player_api.php`);
+      const startTime = Date.now();
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch(pingUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      const latency = Date.now() - startTime;
+
+      return res.json({
+        online: true,
+        latency,
+        dns: targetDns,
+        status: response.status,
+        message: `DNS online e respondendo (${latency}ms)`
+      });
+    } catch (err: any) {
+      return res.json({
+        online: false,
+        error: err?.name === 'AbortError'
+          ? 'Tempo limite de resposta excedido (timeout 6s). Verifique a porta do servidor.'
+          : (err?.message || 'Falha ao conectar com o servidor Xtream')
+      });
+    }
+  });
+
+  // Proxy endpoint: /api/xtream -> forwards to configured target DNS/player_api.php
   app.all('/api/xtream', async (req: Request, res: Response) => {
     try {
-      // Build player_api.php target URL
-      const currentDns = (process.env.VITE_XTREAM_DNS || targetDns).replace(/\/+$/, '');
-      const targetUrl = new URL(`${currentDns}/player_api.php`);
+      // Resolve target DNS from request header, query param, body, or server config
+      const headerDns = req.headers['x-xtream-dns'] as string;
+      const queryDns = req.query.dns as string;
+      const bodyDns = req.body?.dns as string;
+      const rawTarget = (headerDns || queryDns || bodyDns || serverXtreamDns || '').trim().replace(/\/+$/, '');
 
-      // Forward all query parameters (e.g. username, password, action)
+      if (!rawTarget) {
+        return res.status(400).json({
+          error: 'No DNS configured',
+          message: 'Configure seu DNS Xtream no painel de administração da Elite TV.'
+        });
+      }
+
+      const validTarget = rawTarget.startsWith('http://') || rawTarget.startsWith('https://')
+        ? rawTarget
+        : `http://${rawTarget}`;
+
+      const targetUrl = new URL(`${validTarget}/player_api.php`);
+
+      // Forward parameters, skipping internal 'dns' control param
       const combinedParams: Record<string, any> = { ...req.query, ...req.body };
+      delete combinedParams.dns;
+
       for (const [key, val] of Object.entries(combinedParams)) {
         if (val !== undefined && val !== null) {
           targetUrl.searchParams.set(key, String(val));
@@ -75,7 +162,6 @@ async function startServer() {
       return res.status(502).json({
         error: 'Proxy Error',
         message: err?.message || 'Falha ao conectar com o servidor Xtream',
-        dns: targetDns,
       });
     }
   });
@@ -98,7 +184,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT} (DNS: ${targetDns})`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

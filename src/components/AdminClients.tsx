@@ -35,7 +35,7 @@ interface AdminClientsProps {
 }
 
 export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all' }) => {
-  const { clients, addClient, toggleClientStatus, removeClient } = useApp();
+  const { clients, addClient, toggleClientStatus, removeClient, xtreamDns } = useApp();
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,40 +207,36 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
         </div>
       )}
 
-      {/* Header and Quick Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-neutral-900 to-neutral-900/80 p-6 rounded-2xl border border-white/10 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-red-600/20 rounded-xl border border-red-500/40 text-red-500">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                Cadastro e Gestão de Clientes
-                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 text-red-400 border border-red-500/30">
-                  IPTV & VOD
-                </span>
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Geração automática de credenciais, controle de status ativo/inativo e liberação imediata
-              </p>
-            </div>
+      {/* Clean Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-900/80 p-4 sm:p-5 rounded-2xl border border-white/10 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-red-600/20 border border-red-500/30 text-red-500 shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Clientes</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-mono font-bold">
+                {clients.length}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-400">
+              {activeCount} ativos • {inactiveCount} inativos
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={() => setShowAddForm(prev => !prev)}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg ${
-              showAddForm 
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-200 border border-white/20' 
-                : 'bg-red-600 hover:bg-red-500 text-white shadow-red-950/60 hover:scale-105 active:scale-95'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>{showAddForm ? 'Fechar Formulário' : '+ Novo Cadastro com Auto Login/Senha'}</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setShowAddForm(prev => !prev)}
+          className={`px-4 py-2 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer ${
+            showAddForm
+              ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-200 border border-white/20'
+              : 'btn-red !w-auto shadow-red-950/60'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>{showAddForm ? 'Fechar Formulário' : '+ Novo Cliente'}</span>
+        </button>
       </div>
 
       {/* NEW CLIENT REGISTRATION FORM */}
@@ -566,20 +562,26 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
                         Opção 1: DNS Primário do Servidor (Host / IP)
                       </label>
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setDns1(import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top')}
-                          className="text-[10px] text-emerald-400 hover:underline font-mono"
-                        >
-                          Usar {import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top'}
-                        </button>
+                        {xtreamDns ? (
+                          <button
+                            type="button"
+                            onClick={() => setDns1(xtreamDns)}
+                            className="text-[10px] text-emerald-400 hover:underline font-mono"
+                          >
+                            Usar DNS Elite TV ({xtreamDns})
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-mono">
+                            Configure seu DNS Xtream no painel
+                          </span>
+                        )}
                       </div>
                     </div>
                     <input
                       type="text"
                       value={dns1}
                       onChange={(e) => setDns1(e.target.value)}
-                      placeholder={`Ex: ${import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top'}`}
+                      placeholder={xtreamDns ? `Ex: ${xtreamDns}` : 'Ex: http://meudns.com:8080'}
                       className="w-full px-3 py-2 bg-neutral-900 border border-white/15 rounded-lg text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500"
                     />
                     <p className="text-[10px] text-gray-400">
@@ -708,70 +710,61 @@ export const AdminClients: React.FC<AdminClientsProps> = ({ initialFilter = 'all
         </form>
       )}
 
-      {/* FILTER AND SEARCH BAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-neutral-900/90 p-4 rounded-xl border border-white/10">
+      {/* FILTER AND SEARCH BAR (Clean & Compact) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-neutral-900/80 p-2.5 sm:p-3 rounded-xl border border-white/10">
         {/* Status Filter Buttons (Todos / Ativo / Inativo) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               statusFilter === 'all'
                 ? 'bg-white text-black shadow'
                 : 'bg-white/5 hover:bg-white/10 text-gray-300'
             }`}
           >
             <Filter className="w-3.5 h-3.5" />
-            <span>Todos</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 font-mono">
-              {clients.length}
-            </span>
+            <span>Todos ({clients.length})</span>
           </button>
 
           <button
             onClick={() => setStatusFilter('active')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               statusFilter === 'active'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50'
-                : 'bg-white/5 hover:bg-emerald-950/40 text-emerald-400 border border-emerald-900/40'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60'
+                : 'bg-emerald-950/30 hover:bg-emerald-950/50 text-emerald-400 border border-emerald-800/40'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>Clientes Ativos</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950/60 font-mono text-emerald-300">
-              {activeCount}
-            </span>
+            <span>Ativos ({activeCount})</span>
           </button>
 
           <button
             onClick={() => setStatusFilter('inactive')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               statusFilter === 'inactive'
-                ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
-                : 'bg-white/5 hover:bg-red-950/40 text-red-400 border border-red-900/40'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
+                : 'bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-800/40'
             }`}
           >
-            <XCircle className="w-3.5 h-3.5 text-red-400" />
-            <span>Clientes Inativos</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-950/60 font-mono text-red-300">
-              {inactiveCount}
-            </span>
+            <XCircle className="w-3.5 h-3.5" />
+            <span>Inativos ({inactiveCount})</span>
           </button>
         </div>
 
         {/* Search Input */}
-        <div className="relative min-w-[240px]">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por nome, login, fone..."
-            className="w-full pl-9 pr-4 py-2 bg-black/60 border border-white/10 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+            placeholder="Buscar nome, login, fone..."
+            className="w-full pl-8 pr-7 py-1.5 bg-black/60 border border-white/10 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
             >
               ×
             </button>

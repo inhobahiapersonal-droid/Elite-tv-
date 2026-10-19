@@ -20,16 +20,8 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api/xtream': {
-          target: process.env.VITE_XTREAM_DNS || 'http://dgaura.top',
+          target: 'http://127.0.0.1:3000',
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api\/xtream/, '/player_api.php'),
-          configure: (proxy) => {
-            proxy.on('proxyRes', (proxyRes) => {
-              proxyRes.headers['access-control-allow-origin'] = '*';
-              proxyRes.headers['access-control-allow-methods'] = 'GET, POST, OPTIONS';
-              proxyRes.headers['access-control-allow-headers'] = '*';
-            });
-          },
         },
       },
     },

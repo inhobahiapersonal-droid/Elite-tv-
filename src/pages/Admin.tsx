@@ -33,7 +33,12 @@ import {
   Menu,
   X,
   ChevronRight,
-  XCircle
+  XCircle,
+  Globe,
+  Wifi,
+  WifiOff,
+  Save,
+  Activity
 } from 'lucide-react';
 import { AdminClients } from '../components/AdminClients';
 import { Logo } from '../components/Logo';
@@ -52,7 +57,10 @@ export default function Admin() {
     removeCollaborator,
     importM3UContent,
     importXtreamCodes,
-    resetToDefault
+    resetToDefault,
+    xtreamDns,
+    setXtreamDns,
+    testXtreamConnection
   } = useApp();
 
   const navigate = useNavigate();
@@ -78,6 +86,12 @@ export default function Admin() {
   const [clientFilter, setClientFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // DNS Xtream - Elite TV state
+  const [dnsXtreamInput, setDnsXtreamInput] = useState(xtreamDns);
+  const [dnsSaveSuccess, setDnsSaveSuccess] = useState('');
+  const [dnsTestLoading, setDnsTestLoading] = useState(false);
+  const [dnsTestResult, setDnsTestResult] = useState<{ success: boolean; message: string; latency?: number } | null>(null);
+
   // Collaborator form state
   const [collabName, setCollabName] = useState('');
   const [collabEmail, setCollabEmail] = useState('');
@@ -99,11 +113,60 @@ export default function Admin() {
   const [m3uSuccessMsg, setM3uSuccessMsg] = useState('');
 
   // Xtream Codes form state
-  const [xcServer, setXcServer] = useState(import.meta.env.VITE_XTREAM_DNS || 'http://dgaura.top');
+  const [xcServer, setXcServer] = useState(xtreamDns || 'http://dgaura.top');
   const [xcUser, setXcUser] = useState('elitetest');
   const [xcPass, setXcPass] = useState('9928172');
   const [xcLoading, setXcLoading] = useState(false);
   const [xcResult, setXcResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Sync dnsXtreamInput and xcServer when xtreamDns changes
+  useEffect(() => {
+    setDnsXtreamInput(xtreamDns);
+    if (xtreamDns) {
+      setXcServer(xtreamDns);
+    }
+  }, [xtreamDns]);
+
+  const handleSaveDnsXtream = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    let clean = dnsXtreamInput.trim();
+    if (clean) {
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      clean = clean.replace(/\/+$/, '');
+    }
+
+    setXtreamDns(clean);
+    setDnsXtreamInput(clean);
+    if (clean) {
+      setXcServer(clean);
+    }
+    setDnsSaveSuccess(clean ? 'DNS Xtream - Elite TV salvo com sucesso no sistema!' : 'Configuração de DNS limpa.');
+    setDnsTestResult(null);
+
+    setTimeout(() => {
+      setDnsSaveSuccess('');
+    }, 4500);
+  };
+
+  const handleTestDnsConnection = async () => {
+    const target = dnsXtreamInput.trim() || xtreamDns;
+    if (!target) {
+      setDnsTestResult({
+        success: false,
+        message: 'Preencha o campo "DNS Xtream - Elite TV" antes de testar a conexão.'
+      });
+      return;
+    }
+
+    setDnsTestLoading(true);
+    setDnsTestResult(null);
+
+    const result = await testXtreamConnection(target);
+    setDnsTestLoading(false);
+    setDnsTestResult(result);
+  };
 
   // Manual Item form state
   const [manualName, setManualName] = useState('');
@@ -428,14 +491,23 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
                 setActiveTab('xtream');
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center gap-3 ${
+              className={`w-full px-3.5 py-3 rounded-xl text-sm font-semibold transition flex items-center justify-between group ${
                 activeTab === 'xtream'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-950/60'
                   : 'text-gray-300 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Server className="w-[18px] h-[18px] text-emerald-400" />
-              <span>Xtream Codes API</span>
+              <div className="flex items-center gap-3">
+                <Server className="w-[18px] h-[18px] text-emerald-400" />
+                <span>DNS & Xtream Codes</span>
+              </div>
+              {xtreamDns ? (
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" title={`DNS Configurado: ${xtreamDns}`} />
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-medium">
+                  Configurar
+                </span>
+              )}
             </button>
 
             <button
@@ -506,26 +578,28 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="border-b border-white/10 bg-black/60 sticky top-0 z-30 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+        <header className="border-b border-white/10 bg-black/75 sticky top-0 z-30 backdrop-blur-md px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl bg-white/10 text-white"
+              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600/20 text-red-400 border border-red-500/30 text-xs font-bold hover:bg-red-600/30 transition cursor-pointer shadow-sm"
+              title="Abrir Menu Lateral"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4" />
+              <span>Menu Lateral</span>
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Painel</span>
-              <span className="text-gray-600">/</span>
-              <span className="text-sm font-extrabold text-white">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400 hidden sm:inline">Painel</span>
+              <span className="text-gray-600 hidden sm:inline">/</span>
+              <span className="text-sm font-extrabold text-white truncate max-w-[160px] sm:max-w-none">
                 {activeTab === 'clients'
-                  ? `Gestão de Clientes (${clientFilter === 'active' ? 'Ativos' : clientFilter === 'inactive' ? 'Inativos' : 'Todos'})`
+                  ? `Clientes (${clientFilter === 'active' ? 'Ativos' : clientFilter === 'inactive' ? 'Inativos' : 'Todos'})`
                   : activeTab === 'collabs'
                   ? 'Colaboradores'
                   : activeTab === 'm3u'
                   ? 'Importar M3U'
                   : activeTab === 'xtream'
-                  ? 'Xtream Codes API'
+                  ? 'DNS Xtream - Elite TV'
                   : activeTab === 'manual'
                   ? 'Adicionar Canal'
                   : 'Gerenciar Grade'}
@@ -533,77 +607,205 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {xtreamDns ? (
+              <div
+                onClick={() => setActiveTab('xtream')}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/60 text-xs text-emerald-300 font-mono cursor-pointer hover:bg-emerald-900/60 transition"
+                title="Clique para gerenciar o DNS Xtream"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-gray-400 font-sans font-semibold">DNS:</span>
+                <span className="max-w-[140px] truncate font-bold">{xtreamDns}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setActiveTab('xtream')}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-600/70 text-xs text-amber-300 hover:bg-amber-900/80 transition font-semibold"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Configure seu DNS</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 if (window.confirm('Deseja restaurar o catálogo para os canais padrão?')) {
                   resetToDefault();
                 }
               }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition flex items-center gap-1.5"
+              className="text-xs px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition flex items-center gap-1.5"
               title="Restaurar grade padrão de demonstração"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Restaurar Padrão</span>
+              <span className="hidden sm:inline">Restaurar</span>
             </button>
           </div>
         </header>
 
+        {/* Mobile Quick Navigation Tabs (Scrollable Bar) */}
+        <div className="md:hidden border-b border-white/10 bg-neutral-950/90 backdrop-blur-md px-3 py-2 overflow-x-auto flex items-center gap-1.5 sticky top-[53px] z-20">
+          <button
+            onClick={() => {
+              setActiveTab('clients');
+              setClientFilter('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'clients'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Clientes ({clients.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('xtream')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'xtream'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <Server className="w-3.5 h-3.5 text-emerald-400" />
+            <span>DNS Xtream</span>
+            {!xtreamDns && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('m3u')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'm3u'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <Upload className="w-3.5 h-3.5 text-blue-400" />
+            <span>Importar M3U</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('manual')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'manual'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <PlusCircle className="w-3.5 h-3.5 text-purple-400" />
+            <span>Add Canal</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('manage')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'manage'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-400" />
+            <span>Grade ({items.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('collabs')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+              activeTab === 'collabs'
+                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
+                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5 text-yellow-400" />
+            <span>Equipe ({collaborators.length + 1})</span>
+          </button>
+        </div>
+
         {/* Content body */}
-        <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 flex-1">
-          {/* Top KPI Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <main className="max-w-7xl mx-auto w-full px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-5 sm:space-y-6 flex-1">
+          {/* Warning banner when no Xtream DNS is configured (compact & clean) */}
+          {!xtreamDns && (
+            <div className="p-3 sm:p-4 rounded-xl bg-amber-950/80 border border-amber-500/70 shadow-lg shadow-amber-950/30 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 flex-shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs sm:text-sm font-bold text-amber-200 truncate">
+                    Configure seu DNS Xtream
+                  </div>
+                  <p className="text-[11px] text-amber-300/80 truncate hidden sm:block">
+                    Cadastre o host da Elite TV para sincronizar canais ao vivo e autenticar clientes.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab('xtream');
+                  setMobileSidebarOpen(false);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition flex items-center gap-1 flex-shrink-0 cursor-pointer shadow"
+              >
+                <span>Configurar</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Top KPI Stats - Compact & Clean Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
             <div
               onClick={() => {
                 setActiveTab('clients');
                 setClientFilter('all');
               }}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition"
+              className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs font-semibold uppercase">
-                <span>Clientes Registrados</span>
-                <Users className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>Clientes</span>
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
               </div>
-              <div className="text-2xl font-black text-white mt-2">{clients.length}</div>
-              <div className="text-[11px] text-emerald-400 mt-1">
-                {activeClientsCount} ativos • {inactiveClientsCount} inativos
+              <div className="text-xl sm:text-2xl font-black text-white mt-1">{clients.length}</div>
+              <div className="text-[10px] sm:text-[11px] text-emerald-400 truncate mt-0.5">
+                {activeClientsCount} ativos • {inactiveClientsCount} off
               </div>
             </div>
 
             <div
               onClick={() => setActiveTab('manage')}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition"
+              className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs font-semibold uppercase">
-                <span>Total Canais</span>
-                <Radio className="w-4 h-4 text-red-500" />
+              <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>Canais</span>
+                <Radio className="w-3.5 h-3.5 text-red-500" />
               </div>
-              <div className="text-2xl font-black text-white mt-2">{liveCount}</div>
-              <div className="text-[11px] text-green-400 mt-1">Sinal Ao Vivo HLS</div>
+              <div className="text-xl sm:text-2xl font-black text-white mt-1">{liveCount}</div>
+              <div className="text-[10px] sm:text-[11px] text-green-400 truncate mt-0.5">Sinal HLS Ao Vivo</div>
             </div>
 
             <div
               onClick={() => setActiveTab('manage')}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition"
+              className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs font-semibold uppercase">
-                <span>Filmes & Séries VOD</span>
-                <Film className="w-4 h-4 text-blue-500" />
+              <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>Filmes & Séries</span>
+                <Film className="w-3.5 h-3.5 text-blue-500" />
               </div>
-              <div className="text-2xl font-black text-white mt-2">{movieCount + seriesCount}</div>
-              <div className="text-[11px] text-gray-400 mt-1">{movieCount} filmes • {seriesCount} séries</div>
+              <div className="text-xl sm:text-2xl font-black text-white mt-1">{movieCount + seriesCount}</div>
+              <div className="text-[10px] sm:text-[11px] text-gray-400 truncate mt-0.5">{movieCount} filmes • {seriesCount} séries</div>
             </div>
 
             <div
               onClick={() => setActiveTab('collabs')}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition"
+              className="p-3 sm:p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl cursor-pointer transition flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs font-semibold uppercase">
-                <span>Equipe Admin</span>
-                <Shield className="w-4 h-4 text-yellow-500" />
+              <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>Equipe</span>
+                <Shield className="w-3.5 h-3.5 text-yellow-500" />
               </div>
-              <div className="text-2xl font-black text-white mt-2">{collaborators.length + 1}</div>
-              <div className="text-[11px] text-yellow-400 mt-1">1 Master + {collaborators.length} Colaborador(es)</div>
+              <div className="text-xl sm:text-2xl font-black text-white mt-1">{collaborators.length + 1}</div>
+              <div className="text-[10px] sm:text-[11px] text-yellow-400 truncate mt-0.5">1 Master + {collaborators.length} Colab</div>
             </div>
           </div>
 
@@ -748,81 +950,257 @@ https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
           </div>
         )}
 
-        {/* TAB 2: XTREAM CODES */}
+        {/* TAB 2: XTREAM CODES & CONFIGURAÇÃO DNS */}
         {activeTab === 'xtream' && (
-          <div className="max-w-2xl bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Server className="w-5 h-5 text-red-500" />
-                Conectar Servidor Xtream Codes
-              </h3>
-              <p className="text-xs text-gray-400 mt-1">
-                Conecte seu painel Xtream Codes diretamente para receber fluxos HLS ao vivo e VOD com autenticação instantânea.
-              </p>
+          <div className="max-w-3xl space-y-8">
+            {/* CARD 1: CONFIGURAÇÃO DO DNS XTREAM - ELITE TV */}
+            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 border border-red-900/40 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl shadow-red-950/20">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-red-600/20 text-red-500 border border-red-500/30">
+                      <Globe className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white">DNS Xtream - Elite TV</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Configuração central do host Xtream Codes para todo o ecossistema Elite TV.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status indicator */}
+                <div>
+                  {xtreamDns ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 text-xs font-mono">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>DNS Configurado</span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-600/60 text-amber-300 text-xs font-mono">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Configure seu DNS Xtream</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Toast / Feedback alerts */}
+              {dnsSaveSuccess && (
+                <div className="p-4 bg-green-950/60 border border-green-600/80 rounded-xl text-green-300 text-sm flex items-center gap-3 animate-in fade-in duration-200">
+                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+                  <span className="font-medium">{dnsSaveSuccess}</span>
+                </div>
+              )}
+
+              {dnsTestResult && (
+                <div
+                  className={`p-4 rounded-xl text-sm flex items-start gap-3 border animate-in fade-in duration-200 ${
+                    dnsTestResult.success
+                      ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200'
+                      : 'bg-red-950/70 border-red-600 text-red-200'
+                  }`}
+                >
+                  {dnsTestResult.success ? (
+                    <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                    </div>
+                  ) : (
+                    <div className="p-1 rounded-lg bg-red-500/20 text-red-400">
+                      <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold flex items-center gap-2">
+                      <span>{dnsTestResult.success ? 'Conexão Estabelecida com Sucesso!' : 'Falha na Conexão com o Servidor'}</span>
+                      {dnsTestResult.latency !== undefined && (
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-900/80 text-emerald-300 border border-emerald-600/60">
+                          {dnsTestResult.latency}ms
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-1 text-gray-300 leading-relaxed">{dnsTestResult.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Form de configuração do DNS */}
+              <form onSubmit={handleSaveDnsXtream} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-200 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Server className="w-3.5 h-3.5 text-red-500" />
+                      DNS Xtream - Elite TV
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-normal font-sans lowercase">
+                      ex: http://meudns.com:8080 ou https://...
+                    </span>
+                  </label>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ex: http://meudns.com:8080 ou https://servidor.net"
+                      value={dnsXtreamInput}
+                      onChange={(e) => setDnsXtreamInput(e.target.value)}
+                      className="w-full px-4 py-3 bg-black/60 border border-white/20 rounded-xl text-white font-mono text-sm placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
+                    />
+                    {dnsXtreamInput && (
+                      <button
+                        type="button"
+                        onClick={() => setDnsXtreamInput('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white"
+                        title="Limpar campo"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                    ℹ️ Salva apenas o <strong className="text-gray-300">DNS base</strong> (Protocolo + Host + Porta). Todo o sistema (login, canais e área administrativa) utiliza este endereço para comunicar com a API do Xtream. Nenhuma variável <code className="text-red-400 font-mono">.env</code> é necessária.
+                  </p>
+                </div>
+
+                {/* Pre-set suggestions */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[11px] text-gray-400">Sugestão rápida:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDnsXtreamInput('http://dgaura.top')}
+                    className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-red-400 border border-white/10 transition"
+                  >
+                    http://dgaura.top
+                  </button>
+                  {xtreamDns && (
+                    <button
+                      type="button"
+                      onClick={() => setDnsXtreamInput(xtreamDns)}
+                      className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 transition"
+                    >
+                      Restaurar Atual ({xtreamDns})
+                    </button>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3">
+                  <button
+                    type="submit"
+                    className="btn-red !w-auto px-6 py-2.5 flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-red-950/60 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Salvar DNS no Sistema</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestDnsConnection}
+                    disabled={dnsTestLoading}
+                    className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition flex items-center justify-center gap-2 border border-white/15 cursor-pointer disabled:opacity-50"
+                  >
+                    <Activity className={`w-4 h-4 text-emerald-400 ${dnsTestLoading ? 'animate-spin' : ''}`} />
+                    <span>{dnsTestLoading ? 'Testando Conexão...' : 'Testar Conexão'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
 
-            {xcResult && (
-              <div
-                className={`p-4 rounded-lg text-sm flex items-center gap-2 border ${
-                  xcResult.success
-                    ? 'bg-green-950/40 border-green-600 text-green-300'
-                    : 'bg-red-950/40 border-red-600 text-red-300'
-                }`}
-              >
-                {xcResult.success ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                <span>{xcResult.message}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleXtreamConnect} className="space-y-4">
+            {/* CARD 2: CONECTAR SERVIDOR E SINCRONIZAR CONTEÚDO */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 space-y-6">
               <div>
-                <label className="text-xs font-semibold text-gray-300 mb-1 block">URL do Servidor / Host:</label>
-                <input
-                  type="text"
-                  placeholder="http://servidor.dominio:8080"
-                  value={xcServer}
-                  onChange={(e) => setXcServer(e.target.value)}
-                  className="input-netflix"
-                  required
-                />
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Server className="w-5 h-5 text-red-500" />
+                  Sincronizar Grade Xtream Codes
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Autentique uma conta master ou de teste para importar automaticamente os canais ao vivo e mídias VOD para o catálogo da Elite TV.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {xcResult && (
+                <div
+                  className={`p-4 rounded-xl text-sm flex items-center gap-2 border ${
+                    xcResult.success
+                      ? 'bg-green-950/40 border-green-600 text-green-300'
+                      : 'bg-red-950/40 border-red-600 text-red-300'
+                  }`}
+                >
+                  {xcResult.success ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                  <span>{xcResult.message}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleXtreamConnect} className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-300 mb-1 block">Usuário:</label>
+                  <label className="text-xs font-semibold text-gray-300 mb-1 block">URL do Servidor / Host:</label>
                   <input
                     type="text"
-                    placeholder="usuario123"
-                    value={xcUser}
-                    onChange={(e) => setXcUser(e.target.value)}
-                    className="input-netflix"
+                    placeholder="http://servidor.dominio:8080"
+                    value={xcServer}
+                    onChange={(e) => setXcServer(e.target.value)}
+                    className="input-netflix font-mono text-xs"
                     required
                   />
+                  {xtreamDns && xcServer !== xtreamDns && (
+                    <button
+                      type="button"
+                      onClick={() => setXcServer(xtreamDns)}
+                      className="text-[11px] text-emerald-400 hover:underline mt-1 block font-mono"
+                    >
+                      Preencher com DNS Xtream - Elite TV ({xtreamDns})
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-gray-300 mb-1 block">Senha:</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    value={xcPass}
-                    onChange={(e) => setXcPass(e.target.value)}
-                    className="input-netflix"
-                    required
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-300 mb-1 block">Usuário Xtream:</label>
+                    <input
+                      type="text"
+                      placeholder="usuario123"
+                      value={xcUser}
+                      onChange={(e) => setXcUser(e.target.value)}
+                      className="input-netflix"
+                      required
+                    />
+                  </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={xcLoading}
-                  className="btn-red !w-auto px-8"
-                >
-                  {xcLoading ? 'Conectando ao Host...' : 'Autenticar e Sincronizar'}
-                </button>
-              </div>
-            </form>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-300 mb-1 block">Senha Xtream:</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={xcPass}
+                      onChange={(e) => setXcPass(e.target.value)}
+                      className="input-netflix"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={xcLoading}
+                    className="btn-red !w-auto px-8 py-2.5 flex items-center gap-2 cursor-pointer"
+                  >
+                    {xcLoading ? (
+                      <>
+                        <Activity className="w-4 h-4 animate-spin" />
+                        <span>Conectando ao Host...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        <span>Autenticar e Sincronizar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
