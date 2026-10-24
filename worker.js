@@ -15,11 +15,10 @@ export default {
       });
     }
 
-    // Resolve target DNS from header, query param, or env fallback
+    // Resolve target DNS from header or query param (configured via admin panel)
     const targetDns = (
       request.headers.get('x-xtream-dns') ||
       url.searchParams.get('dns') ||
-      env?.XTREAM_DNS ||
       ''
     ).trim().replace(/\/+$/, '');
 

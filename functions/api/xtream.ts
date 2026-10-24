@@ -15,11 +15,10 @@ export async function onRequest(context: any) {
     });
   }
 
-  // Resolve target DNS from header, query param, or env
+  // Resolve target DNS from header or query param (configured via admin panel)
   const targetDns = (
     request.headers.get('x-xtream-dns') ||
     url.searchParams.get('dns') ||
-    env?.XTREAM_DNS ||
     ''
   ).trim().replace(/\/+$/, '');
 
